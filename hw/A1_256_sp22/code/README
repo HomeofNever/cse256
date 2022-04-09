@@ -12,4 +12,4 @@ This ipynb can be used directly by imported into Google Colab. All packages requ
 
 - You may need to change `getPath` function, replacing the hardcoded data path into the root directory of the homework root path
 - Packages required has defined at the header of the Files
-
+    - Matplotlib requires `3.5.1`, for colab, you may need to uncomment the install command and reset runtime after first run
