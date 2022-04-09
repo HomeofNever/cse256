@@ -1,0 +1,15 @@
+# Assignment
+
+## Files
+
+- `Assignment1.ipynb`
+
+## Usage
+
+This ipynb can be used directly by imported into Google Colab. All packages required will be installed automatically.
+
+### Note
+
+- You may need to change `getPath` function, replacing the hardcoded data path into the root directory of the homework root path
+- Packages required has defined at the header of the Files
+
