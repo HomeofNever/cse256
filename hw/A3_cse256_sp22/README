@@ -1,0 +1,22 @@
+# Assignment 3
+
+## Note
+
+This file is exported from colab, and you may need to change the following function to return the correct root path of the homework.
+
+```
+def base_dir():
+  return "/content/drive/MyDrive/Colab Notebooks/CSE256/A3_cse256_sp22/"
+```
+
+## Get result
+
+```
+python3 assignment_3.py
+```
+
+All graph, tables will be run in linear order. Graph will be output with `plt.show()`
+
+## Comments
+
+Each section will be separated by `#####` with summary. 
