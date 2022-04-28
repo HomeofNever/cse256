@@ -12,6 +12,8 @@
 | reuters | 38169 | 8082 | 8214 | 36037 |
 |gutenberg | 68740 | 14729 | 14826 | 43835|
 
+> Numbers in table are number of sets
+
 Here I compared across the three model provided: brown, reuters, and gutenberg along their perplexity. The table below shown the size of the set accordingly. We can see that gutenberg has larger training set compared with other models, and from the graph we can see that its perplexity is also on a lower side compared with other models. The two model with similar size of training set has similar performance. To sum up, we can see that the larger the training set is, the better the model perform in case of its perplexity.
 
 ### 2.2 Analysis on Out-of-Domain Text (1.5 points)
@@ -34,6 +36,8 @@ brown      |**1604.2**   |  6736.6   |    1762.01
 reuters    |3865.16  |  **1500.69**   |   4887.47
 gutenberg  |2626.05  | 12392.5     |  **1005.79**
 
+> Numbers in table are perplexity
+
 For all the matrix above, there is a trend that all model is doing their best (lower perplexity) when evaluating text within their own domains, and the perplexity goes higher when it is outside their domains. However, for domains that have different types, such as Gutenberg, which text are mostly from English playwright and novelist in 1600s, and Reuters, which are mostly financial news in 1987, would have a sky-rocketing increase of the perplexity when model is train on one and test on another.
 
 
@@ -41,62 +45,72 @@ For all the matrix above, there is a trend that all model is doing their best (l
 
 ### Implementation Details
 
-In this assignment, I tried to use a Trigram model with laplace smoothing (delta = 0.01). Delta was chosen with small number so unseen word won't For each of the sentence, I use `<START>` as starting word placeholder and `END_OF_SENTENCE` for STOP word accordingly. The model first counts corresponded set of word and normalized them afterward. Backoff value is set to `delta/(delta * |v|)` accordingly.
+In this assignment, I tried to use a Trigram model with Katz Backoff. Backoff value was chosen as `1/(|v|)`. Each N-Gram calculate probability as `C(w_1, ..., w_n)/C(w_1, ..., w_(n-1)`. For each of the sentence, I use `<START>` as starting word placeholder if request `n>1` N-gram model, and `END_OF_SENTENCE` for STOP word accordingly. The model first counts corresponded set of for Trigram, Bigram, and Unigram, or use the Backoff value `0.001` for unknown word. Katz Backoff uses lower N if the higher one does not exist, and for Trigram, Bigram, Unigram, Unknown, weights lambda 0.4, 0.3, 0.2, and 0.1 are used accordingly.
 
-### Compare with Unigram
+### Compare with Unigram  
 
-![](./pic/3.2.1.png)
+![](./pic/3.2.1.png)  
 
 > Unigram graph shown on Question 2.1
 
-Compared with Unigram model, Trigram model has a good understanding with training data set. It is also worth noticing that the training perplexity ratios across three domains are matching the dev and test Result.
+Compared with Unigram model, Trigram with Katz Backoff have better performance than Unigram, in perspective of perplexity. It is also clear that the dev model is a good indicator of how model perform on the test set. Our model, compared with Unigram, seems to have better performance over the Reuter's set as it has the best perplexity value among the three corpus, while Unigram model has better fit over gutenberg's corpus among the tree model train on Unigram.
 
-Trigram has perform better train set over Unigram, but has worse result over dev and test. 
+#### Hyperparameter  
 
-### Model Preference
+We tried to decrease backoff value from high to low and find the model performance over perplexity has decreased (value being larger). For lambda, we have manually tried several of them but as there are four parameters could be added together, we shown the final one we have chosen as describe above. The image shown here keeps all value but changed the backoff value and show the performance.
 
-Here I choose the following three sentences/phases and as model trained in different domains for scores `logprob sentence`:
+![](./pic/3.2.4.png)  
+
+#### Model Preference
+
+Here I choose the following three sentences/phases and as model trained in different domains for scores of `perplexity`:
 
 - "To be or not to be"
-- "Make America great again"
+- "What is the weather like today"
 - "Tesla posted a record 3.3 billion profit in the first three months of 2022 with sales of its vehicles up 81% from last year"
 
 
 |Sentence|brown|reuters|gutenberg|
 |---|---|---|---|
-|To be or not to be | -62.3846 | -67.614 | **-46.9252**|
-Make America great again |      **-72.4445** |  -75.6862  |   -73.669|
-Tesla posted a record 3.3 billion profit in the first three months of 2022 with sales of its vehicles up 81% from last year | -333.936 |  **-285.952**  |   -355.299|
+|To be or not to be | 80.8518  |  111.185   |  **36.5207**
+Make America great again |      **284.948** |  636.236   |   300.25|
+Tesla posted a record 3.3 billion profit in the first three months of 2022 with sales of its vehicles up 81% from last year | 1601.09 |  **681.066**  |  2879.66|
 
-The models has shown preference e.g. brown would prefer more on American style language, Gutenberg is more likely to think poem related phases, and Reuters mark higher prob on data/financial related sentences.
+> Values in the table are perplexity over the sentence, the lower means the model is more familiar with the sentence
+
+The models has shown preference e.g. brown would prefer more on American style daily used language, Gutenberg is more likely to think poem related phases, and Reuters mark higher prob on data/financial related sentences.
 
 ### Out of Domain Text Analysis
 
-| train  |  brown  |  reuters  |  gutenberg |
+| train model/corpus  |  brown  |  reuters  |  gutenberg |
 |--------- | --------- | ---------  |-----------|
-|brown  |      342.571 | 22665.5     | 16704.4
-|reuters |   17124.8    |  189.834    |24005.7
-|gutenberg | 14390.2    |28658.1       | 257.199|
+brown    |    11.5691  |3617.13    |  1233.95
+reuters  |  2120.66  |    11.9393  |  3438.49
+gutenberg | 1410.18  |  6372.85   |     17.6011
 
-dev    |  brown |   reuters   | gutenberg
+dev model/corpus     |  brown |   reuters   | gutenberg
 --------- | ------- | ---------|  -----------
-brown     | 10616.3  | 22670.9  |    16653.2
-reuters   | 17275     | 2279.39  |   23997.3
-gutenberg | 14369.4   |28700.7    |   4033.32
+brown   |    707.61 |  3583.35   |   1219.1
+reuters  |  2127.48 |   173.943   |  3407.71
+gutenberg | 1401.5  |  6320.11   |    315.698
 
-test     |  brown  |  reuters  |  gutenberg
+test model/corpus      |  brown  |  reuters  |  gutenberg
 --------- | ------- | --------- | -----------
-brown      |10733.3  | 22673.2   |   16566.3
-reuters    |17363.7   | 2345.64   |  23867.7
-gutenberg  |14449     |28615.2     |  4079.38
+brown    |   722.102  | 3598.24    |  1228.59
+reuters  |  2167.25  |   179.808   |  3425.96
+gutenberg | 1412.23  |  6334.4    |    320.118
 
-> Unigram table could be find at Question 2.2
+> Unigram perplexity table could be find at Question 2.2
 
-Unigram has out-perform Trigram model in out-of-domain text. One possible reason is that Trigram have more chances to mark things into "unseen` categories compare with Unigram.
+Trigram with Katz Backoff model has out-perform Unigram model in out-of-domain text. One possible reason is that Backoff model have considered more context (word to word relationship) compared with Unigram. As we can see from the image below:
 
 ![](./pic/3.2.2.png)
 
-Trigram has significant more times triggering backoff while Unigram has way less here, which could be the reason why Unigram may be a better choice if training set has few overlap with test/application set while Trigram suffered. It is also worth mentioning that laplace smoothing may contribute parts of the performance factor. 
+Trigram has significant more times matching more precise context while Unigram has way less here. When checking with the dev/test set, model also have different percentage of context reference:
+
+![](./pic/3.2.3.png)
+
+Unigram will either hit the word or not, but our Trigram with backoff can make use of precise context if exist, and as most of the word tested has matching context, it is also pretty clear that it could take more advantage than Unigram.
 
 ## Adoptions
 
@@ -108,7 +122,7 @@ In this section I choose to use mixed up brown and reuters model since they have
 ![](./pic/4.png)
 
 
-Baseline on the graph is Brown model's perplexity over Reuter's test set. As we can see from the graph, Trigram model improves a lot at the time cross-domain text has been added to the training set. Still, there is some gap toward Reuter's model.
+Baseline on the graph is Brown model's perplexity over Reuter's test set. As we can see from the graph, Trigram model improves a lot at the time cross-domain text has been added to the training set, and has nearly catch up with Reuter's model in full match.
 
 
 

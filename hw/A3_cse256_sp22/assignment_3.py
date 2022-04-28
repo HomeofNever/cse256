@@ -67,7 +67,11 @@ class Unigram(LangModel):
     def __init__(self, backoff = 0.000001):
         self.model = dict()
         self.lbackoff = log(backoff, 2)
-        self.backoff_count = 0
+        self.reset_count()
+
+    def reset_count(self):
+      self.uni_count = 0
+      self.backoff_count = 0
 
     def inc_word(self, w):
         if w in self.model:
@@ -91,6 +95,7 @@ class Unigram(LangModel):
 
     def cond_logprob(self, word, previous):
         if word in self.model:
+            self.uni_count += 1
             return self.model[word]
         else:
             self.backoff_count += 1
@@ -284,11 +289,11 @@ def learn_unigram(data, verbose=True):
     if verbose:
         print("vocab:", len(unigram.vocab()))
         # evaluate on train, test, and dev
-        unigram.backoff_count = 0
+        unigram.reset_count()
         print("train:", unigram.perplexity(data.train))
         print("dev  :", unigram.perplexity(data.dev))
         print("test :", unigram.perplexity(data.test))
-        btc = unigram.backoff_count
+        btc = [unigram.uni_count, unigram.backoff_count]
         print(" backoff : ", unigram.backoff_count)
         sampler = Sampler(unigram)
         print("sample 1: ", " ".join(str(x) for x in sampler.sample_sentence([])))
@@ -395,7 +400,7 @@ START = '<START>'
 EOS = 'END_OF_SENTENCE'
 
 class TrigramBackOff(LangModel):
-    def __init__(self, delta = 0, backoff= 0.000001, lamb = [0.55, 0.35, 0.1]):
+    def __init__(self, delta = 0, backoff= 0.001, lamb = [0.40, 0.30, 0.2, 0.1]):
         self.model = DefaultDict(int)
         self.vocabulary = DefaultDict(int)
         self.context = DefaultDict(int)
@@ -407,7 +412,14 @@ class TrigramBackOff(LangModel):
 
         self.delta = delta
         self.lamb = lamb
-        self.backoff = log(backoff, 2)
+        self.backoff = backoff
+        self.reset_count()
+    
+    def reset_count(self):
+        self.tri_count = 0
+        self.bi_count = 0
+        self.uni_count = 0
+        self.backoff_count = 0
         
     def fit_sentence(self, sentence):
         s = [START, START] + sentence + [EOS]
@@ -423,40 +435,55 @@ class TrigramBackOff(LangModel):
           self.bi_model[(s[i - 1], s[i])] += 1
           self.bi_context[s[i - 1]] += 1
 
-        for i in sentence:
+        s = sentence + [EOS]
+        for i in s:
           self.uni[i] += 1
 
     def norm(self):
         v = len(self.vocab()) * self.delta
 
         for word in self.model:
-            self.model[word] = (log(self.model[word] + self.delta, 2) - log(self.context[word[:2]] + v)) * self.lamb[0]
+            self.model[word] = (float(self.model[word] + self.delta) / (self.context[word[:2]] + v)) * self.lamb[0]
 
         for word in self.bi_model:
-            self.bi_model[word] = (log(self.bi_model[word] + self.delta, 2) - log(self.bi_context[word[0]] + v, 2)) * self.lamb[1]
+            self.bi_model[word] = (float(self.bi_model[word] + self.delta) / (self.bi_context[word[0]] + v)) * self.lamb[1]
 
         tot = sum(self.uni.values())
 
         for word in self.uni:
-            self.uni[word] = (log(self.uni[word] + self.delta, 2) - log(tot + v, 2)) * self.lamb[2]
+            self.uni[word] = (float(self.uni[word] + self.delta) / (tot + v)) * self.lamb[2]
 
         # update backoff
         if self.delta != 0:
-          self.backoff = log(self.delta, 2) - log(v,2)
+          self.backoff = self.delta / v * self.lamb[3]
+        elif self.backoff == 0:
+          self.backoff = 1 / len(self.vocab()) * self.lamb[3]
+        else:
+          self.backoff = self.backoff * self.lamb[3]
+
 
     def cond_logprob(self, word, previous):
-        btm = (EOS, EOS)
+        btm = (START, START)
         if len(previous) >= 2:
           btm = (previous[-2], previous[-1])
         elif len(previous) > 0:
           btm = (START, previous[-1])
 
-        top = btm + (word,)
+        tri = btm + (word,)
+        bi = (btm[1], word) 
 
-        if top in self.model and btm in self.bi_model and word in self.uni:
-            return self.model[top] + self.bi_model[btm] + self.uni[word]
+        if tri in self.model:
+            self.tri_count +=1
+            return log(self.model[tri] + self.bi_model[bi] + self.uni[word] + self.backoff, 2)
+        elif bi in self.bi_model:
+            self.bi_count +=1
+            return log(self.bi_model[bi] + self.uni[word] + self.backoff, 2)
+        elif word in self.uni:
+            self.uni_count +=1
+            return log(self.uni[word] + self.backoff, 2)
         else:
-            return self.backoff
+            self.backoff_count += 1
+            return log(self.backoff, 2)
 
     def vocab(self):
         return self.vocabulary.keys()
@@ -469,6 +496,7 @@ class Trigram(LangModel):
         self.context = DefaultDict(int)
         self.delta = delta
         self.backoff_count = 0
+        self.v = 0
         
     def fit_sentence(self, sentence):
         s = [START, START] + sentence + [EOS]
@@ -480,13 +508,13 @@ class Trigram(LangModel):
           self.context[(s[i - 2], s[i - 1])] += 1
 
     def norm(self):
-        v = len(self.vocab()) * self.delta
+        self.v = len(self.vocab()) * self.delta
 
         for word in self.model:
-            self.model[word] = (log(self.model[word] + self.delta, 2) - log(self.context[word[:2]] + v, 2))
+            self.model[word] = log(self.model[word] + self.delta, 2) - log(self.context[word[:2]] + self.v, 2)
 
         # update backoff
-        self.backoff = log(self.delta, 2) - log(v,2)
+        self.backoff = log(self.delta, 2) - log(self.v,2)
 
         # Freq word
         ss = 0
@@ -516,20 +544,21 @@ class Trigram(LangModel):
 
 ##### Test Trigram
 
-def tri_generator():
-    trigram = Trigram()
+def tri_generator(model=TrigramBackOff):
+    trigram = model()
     corpus = [
         [ "sam", "i", "am" ]
     ]
     trigram.fit_corpus(corpus)
     print(trigram.model)
+    print(trigram.bi_model)
+    print(trigram.uni)
     sampler = Sampler(trigram)
     for i in range(10):
         print(i, ":", " ".join(str(x) for x in sampler.sample_sentence([])))
 
 tri_generator()
-
-##### Train Trigram
+tri_generator(TrigramBackOff)
 
 def learn_trigram(data, verbose=True):
     """Learns a unigram model from data.train.
@@ -537,24 +566,26 @@ def learn_trigram(data, verbose=True):
     It also evaluates the model on data.dev and data.test, along with generating
     some sample sentences from the model.
     """
-    trigram = Trigram(delta=0.01)
+    trigram = TrigramBackOff(backoff=0.0001)
     trigram.fit_corpus(data.train)
     if verbose:
         print("vocab:", len(trigram.vocab()))
+        print("backoff :", trigram.backoff)
         # evaluate on train, test, and dev
-        trigram.backoff_count = 0
+        trigram.reset_count()
         print("train:", trigram.perplexity(data.train))
         print("dev  :", trigram.perplexity(data.dev))
         print("test :", trigram.perplexity(data.test))
         print("  backoff :", trigram.backoff_count)
-        btc = trigram.backoff_count
+        btc = [trigram.tri_count, trigram.bi_count, trigram.uni_count, trigram.backoff_count]
         sampler = Sampler(trigram)
         print("sample 1: ", " ".join(str(x) for x in sampler.sample_sentence([])))
         print("sample 2: ", " ".join(str(x) for x in sampler.sample_sentence([])))
     return trigram, btc
-
+    
 tri_models = []
 tri_models_btc = []
+datas = []
 for dname in dnames:
     print("-----------------------")
     print(dname)
@@ -584,7 +615,7 @@ print("-------------------------------")
 print("x test")
 print_table(tri_perp_test, dnames, dnames, "table-test.tex")
 
-##### Question 3 Graph 1
+##### Question 3 Graph 2
 # Varies train size
 # creating the dataset
 # set width of bar
@@ -619,6 +650,26 @@ plt.legend()
 plt.show()
 
 ##### Question 3 Graph 2
+
+# Set position of bar on X axis
+mixed_name = ["Unigram", "Bigram", "Trigram" ]
+mixed_perplexity = [len(tri_models[0].uni), len(tri_models[0].bi_model), len(tri_models[0].model)]
+
+# Figure Size
+fig = plt.figure(figsize =(10, 7))
+ 
+# Horizontal Bar Plot
+plt.bar(mixed_name, mixed_perplexity)
+
+
+plt.title("Unique number of word (set) in different model")
+plt.xlabel('N-Gram', fontweight ='bold', fontsize = 15)
+plt.ylabel('items', fontweight ='bold', fontsize = 15)
+ 
+# Show Plot
+plt.show()
+
+##### Question 3 Graph 3
 # Varies train size
 # creating the dataset
 # set width of bar
@@ -626,43 +677,98 @@ barWidth = 0.25
 fig = plt.subplots(figsize =(12, 8))
  
 # set height of bar
+backoff_plt = [unigram_btc[0][1], tri_models_btc[0][3]]
+uni_plt = [unigram_btc[0][0], tri_models_btc[0][2]]
+bi_plt = [0, tri_models_btc[0][1]]
+tri_plt = [0, tri_models_btc[0][0]]
 
 # Set position of bar on X axis
-br1 = np.arange(len(unigram_btc))
+br1 = np.arange(len(backoff_plt))
 br2 = [x + barWidth for x in br1]
 br3 = [x + barWidth for x in br2]
+br4 = [x + barWidth for x in br3]
  
 # Make the plot
-plt.bar(br1, unigram_btc, color ='r', width = barWidth,
+plt.bar(br1, backoff_plt, color ='r', width = barWidth,
+        edgecolor ='grey', label ='Backoff')
+plt.bar(br2, uni_plt, color ='g', width = barWidth,
         edgecolor ='grey', label ='Unigram')
-plt.bar(br2, tri_models_btc, color ='g', width = barWidth,
+plt.bar(br3, bi_plt, color ='b', width = barWidth,
+        edgecolor ='grey', label ='Bigram')
+plt.bar(br4, tri_plt, color ='y', width = barWidth,
         edgecolor ='grey', label ='Trigram')
-    
+ 
 # Adding Xticks
-plt.xlabel('Set', fontweight ='bold', fontsize = 15)
-plt.ylabel('BackOff Count During Dev&Test', fontweight ='bold', fontsize = 15)
+plt.title("Different model on Brown corpus hit count")
+plt.xlabel('N-Gram', fontweight ='bold', fontsize = 15)
+plt.ylabel('Count', fontweight ='bold', fontsize = 15)
 plt.xticks([r + barWidth for r in range(len(brown_plt))],
-        dnames)
+        ["Unigram", "Trigram"])
  
 plt.legend()
+plt.show()
+
+def learn_trigram_test(data, backoff=0.0001, verbose=True):
+    """Learns a unigram model from data.train.
+
+    It also evaluates the model on data.dev and data.test, along with generating
+    some sample sentences from the model.
+    """
+    trigram = TrigramBackOff(backoff=backoff)
+    trigram.fit_corpus(data.train)
+    if verbose:
+        print("vocab:", len(trigram.vocab()))
+        print("backoff :", trigram.backoff)
+        # evaluate on train, test, and dev
+        trigram.reset_count()
+        print("train:", trigram.perplexity(data.train))
+        print("dev  :", trigram.perplexity(data.dev))
+        te = trigram.perplexity(data.test)
+        print("test :", trigram.perplexity(data.test))
+        print("  backoff :", trigram.backoff_count)
+    return trigram, te
+
+bks = [i for i in range(1, 6)]
+datas = []
+dname = "brown"
+bk = 0.1
+for i in range(5):
+    print("-----------------------")
+    print(dname)
+    print("backoff: ", bk)
+    bks.append(bk)
+    data = read_texts(base_dir() + "data/corpora.tar.gz", dname)
+    model, te = learn_trigram_test(data, bk)
+    datas.append(te)
+    bk *= 0.1
+
+##### Question 3 Graph 4
+# Figure Size
+fig = plt.figure(figsize =(10, 7))
+ 
+# Horizontal Bar Plot
+plt.bar(bks, datas)
+
+plt.title("Brown corpus perplexity over different backoff value")
+plt.xlabel('Backoff (0.1^x)', fontweight ='bold', fontsize = 15)
+plt.ylabel('Test Perplexity', fontweight ='bold', fontsize = 15)
+ 
+# Show Plot
 plt.show()
 
 ##### Question 3 Sample
 sentences = [
     "To be or not to be",
-    "Make America great again",
+    "What is the weather like today",
     "Tesla posted a record 3.3 billion profit in the first three months of 2022 with sales of its vehicles up 81% from last year"
 ]
 
-test_dev= np.zeros((n,n))
 test_preps = np.zeros((n, n))
 for i, s in enumerate(sentences):
   ls = []
   for j, t in enumerate(tri_models):
-    test_dev[i][j] = t.logprob_sentence(s.split(" "))
     test_preps[i][j] = t.perplexity([s.split(" ")])
 
-print_table(test_dev, sentences, dnames)
 print_table(test_preps, sentences, dnames)
 
 print("-----------------------")
@@ -693,8 +799,8 @@ brown_data.dev += reuters_data.dev
 full_mix_model, _ = learn_trigram(brown_data)
 full_mix_p = full_mix_model.perplexity(reuters_data.test)
 
-mixed_name = ["Baseline", "5% mixed", "Full mixed", "Reuter"]
-mixed_perplexity = [tri_perp_test[0][1], five_percent, full_mix_p, tri_perp_test[1][1]]
+mixed_name = ["Baseline", "5% mixed", "Full mixed", "Reuter", "Unigram Reuter Origin Model"]
+mixed_perplexity = [tri_perp_test[0][1], five_percent, full_mix_p, tri_perp_test[1][1], perp_test[1][1]]
  
 # Figure Size
 fig = plt.figure(figsize =(10, 7))
