@@ -14,9 +14,11 @@ IBM models are used for translation and alignment, and they have been the majori
 ### Description of EM Algorithm - What are the strengths and weaknesses?
 
 Expectation-Maximization Algorithm is to find the maximum-likelihood estimates  of models' parameters, where its strength is able to estimate even though only part of the data is observed, while at the same time the possibilities of the result will increase along with each iteration until converged. Its weakness includes slow convergence and only is able to converge to local optimal only.
+
 ### Method Overview - Provide a high-level description of your implementation
 
 My implementation of the IBM 1 include three main steps. First, when getting the corpus, each English sentence will added a NULL word at the beginning, and each word alignment will be initialized as `1/n(e)` where `n(e)` is the number of different words that occur in any translation of a sentence containing English word e. After the initialization, the algorithm will running 5 iteration of EM algorithm against the corpus. For each pair of sentences, we loop thru each foreign word in the sentence, and gather the possible delta value of each pair of word t value divided by the sum of pair of the foreign word and the whole English sentence's words t value. With this delta, we calculate the count accordingly and update t value in each iteration. After each iteration, we use dev test set against our model by finding the optimal alignment and calculate the F1 Score. 
+
 ### Results and Discussion - Report your F1 score and Show how F1 score changes after each iteration
 
 
@@ -61,6 +63,7 @@ IBM Model 2 introduce the distortion parameter, which considers the position of 
 
 - Its convergence would largely depend on the initial value. Different values will end up into different local optimal. In our example, we use pre-trained t value from IBM Model 1 when we doing Model 2 to avoid unstable result
 - The same as Model 1, Model 2 does not map relation of multiple source word to a single target word 
+
 ### Method Overview - Provide a brief, high-level description of your implementation
 
 In my implementation, I make use of the part of IBM 1 model implementation to handle the text, and for the initialization part, t value is initialized to the value of IBM 1 model 5th iteration, and the distortion value is initialized as `1/(l+1)`, where `l` is the sentence lengths of English sentences without NULL word. EM algorithm also includes new parameters calculation, addition to existing t value updates, and each time I build the alignment pair `(j, i, l, m)` and update the distortion value accordingly.
@@ -107,9 +110,11 @@ The final result of the F1-Score is `0.449` which match the expected value. The 
 
 #### Alignment Examples
 
+> Missing alignment marked italicized, and `W` means wrong alignment 
+
 ##### Correct Alignment
 
-> The only missing one alignment marked italicized
+> Missing one alignment
 
 | | thank | you | for | your | statement | , | commissioner | . |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

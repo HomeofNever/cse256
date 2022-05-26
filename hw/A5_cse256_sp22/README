@@ -1,0 +1,17 @@
+# Assignment 5
+
+## Note
+
+File `Assignment5.py` has contains all code required to run this project. Relevant dataset not included, however.
+
+## Adjustment
+
+change the `basedir()` function to point to the correct location for the dataset directory, and ensure write permission is granted. During the execution, some model file will be generated for other steps.
+
+### How to run
+
+```
+python Assignment5.py
+```
+
+Then all part of the code will execute accordingly, output will all information shown in the report. Extra information may also be printed. 
