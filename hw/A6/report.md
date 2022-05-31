@@ -6,7 +6,7 @@
 
 ### Q1 How do you think the architecture in Figure1 will perform on long sequences, and why? Consider the amount of information the decoder gets to see about the input sequence (2 points).  
 
-The single hidden state at the end of the encoding process will cause information bottleneck. This bottleneck will be likely to make the initial context lost during the encoding process.
+The architecture in will not have good performance over long sequence. The single hidden state, a fixed length vector, at the end of the encoding process will cause information bottleneck. This bottleneck will be likely to make the initial context lost during the encoding process.
 
 ### Q2 What modification can we make to this architecture to improve its performance on long sequences? Explain how this modification facilitates more accurate translation on long sequences. (2 points)  
 
@@ -22,7 +22,7 @@ Transformer model, unlike RNN, is able to process the whole input once, thanks t
 
 ### Q4 Under what conditions might the performance of window attention be at a strong disadvantage in comparison to full self-attention? You can reason using specific examples, or you can provide your argument in more abstract terms. (2 Points)  
 
-For window attention, to learn dependencies for a large sequence, we would either have to increase the window size or increase the number of layers, which effectively defeat the purpose of saving memory and process power. Otherwise, we may not be able to obtain good result for tasks that require wider range of tokens.
+Window attention would have a strong disadvantage in comparison to full one under the fact that sequence is short in general. At this time, the time and space saved from window attention is negligible while the dependency lost is huge at the same time, which hurts the model's performance.
 
 
 ### Q5 Discuss another self-attention pattern (other than full-self attention and window attention). This can be your own novel pattern, we encourage you to think of your own, but you can also consult the literature for help. Explain one strength and one potential limitation of your chosen attention pattern. You may choose to show a visual similar to Figure 2 to illustrate your attention pattern (4.5 Points)
